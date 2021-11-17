@@ -17,7 +17,7 @@ CRGB gameoflife[NUM_LEDS];    // our array
 CRGB liveCell = CRGB::White;
 CRGB deadCell = CHSV(30,127,64);
 int endGameCounter = 0;
-int endGameThreshold = 30;
+int endGameThreshold = 100;
 
 // forward declaration
 int CountNeighbors(int x, int y);
@@ -131,9 +131,15 @@ void CheckForEndGame(){
   int n = memcmp(leds, gameoflife, sizeof(leds));
   if (n==0){
     endGameCounter++;
+    Serial.println("End of Game Reached....");
     if (endGameCounter > endGameThreshold){
+      endGameCounter = 0;
       InitGameOfLife(40);
+      // update display memory
+      memcpy(leds, gameoflife, sizeof(leds));      
+      FastLED.show(); 
       delay(2000);
+      Serial.println("End of Game Reset");
     }
   }
 }
@@ -159,6 +165,8 @@ void loop() {
 
   // update display
   FastLED.show(); 
+
+  CheckForEndGame();
 
   // slow everything 
   delay(60);
