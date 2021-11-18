@@ -14,13 +14,18 @@ int led_pos=0;
 
 // Game Of Life variables
 CRGB gameoflife[NUM_LEDS];    // our array
-CRGB liveCell = CRGB::White;
-CRGB deadCell = CHSV(30,127,64);
+CRGB liveCell = CRGB::White;  // initial color
+CRGB deadCell = CHSV(30,127,100);
 int endGameCounter = 0;
-int endGameThreshold = 100;
+int endGameThreshold = 20;
+int hue; 
+int huestep=20;
+int loop_ndx=0;
+int loop_max=250;
 
 // forward declaration
 int CountNeighbors(int x, int y);
+void CheckForEndGame();
 
 // convert X,Y position to a linear array, with zigzag wiring
 // position 1,1 is lower-left corner, first row
@@ -49,6 +54,12 @@ void DrawPixel(uint8_t x, uint8_t y, CRGB pixelcolor){
 
 void InitGameOfLife(float populationPercent){
   int randNumber;
+  endGameCounter = 0;
+  loop_ndx = 0;
+  // change color on next generation run 
+  hue += huestep;
+  liveCell = CHSV(hue,255,255);
+  deadCell = CHSV(hue+60,150,100);  
   // seed random number
   randomSeed(analogRead(0));
 
@@ -64,6 +75,10 @@ void InitGameOfLife(float populationPercent){
       }
     } // y
   } // x 
+
+  memcpy(leds, gameoflife, sizeof(leds));      
+  FastLED.show(); 
+  delay(2000);
 }
 
 void UpdateGameOfLife(){
@@ -92,6 +107,9 @@ void UpdateGameOfLife(){
       } // deadCell 
     } // y
   } // x 
+
+  // check if  GoL not changing or cyclic looping
+  CheckForEndGame();
 
   // then copy our GoL array to the leds array
   // this does not update the LED Matrix Display
@@ -126,21 +144,24 @@ int CountNeighbors(int x, int y){
   return neighborCount;
 }
 
-// bug: not working
+
+// if previous and next generation are the same, i.e. no change, then we restart the game
+// but sometimes, we have periodic changes, so the two arrays will never be equal ever!... 
+// so if we reached maximum loop, we restart the game as well
 void CheckForEndGame(){
-  int n = memcmp(leds, gameoflife, sizeof(leds));
-  if (n==0){
+  int n = memcmp(leds, gameoflife, sizeof(leds)); 
+
+  // both arrays equal, we reached end of game, so restart again
+  if (n==0){  
     endGameCounter++;
-    Serial.println("End of Game Reached....");
     if (endGameCounter > endGameThreshold){
-      endGameCounter = 0;
       InitGameOfLife(40);
-      // update display memory
-      memcpy(leds, gameoflife, sizeof(leds));      
-      FastLED.show(); 
-      delay(2000);
-      Serial.println("End of Game Reset");
     }
+  }
+
+  // cyclical loop, check for max loop reached, restart the game anyway
+  if (loop_ndx > loop_max){
+    InitGameOfLife(40);
   }
 }
 
@@ -150,24 +171,18 @@ void setup() {
   delay( 500 ); // power-up safety delay
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
   FastLED.setBrightness(  BRIGHTNESS );  
-
-  InitGameOfLife(40);   // 50% populated
-  // update display memory
-  memcpy(leds, gameoflife, sizeof(leds));
-  // light display + Long Pause
-  FastLED.show(); 
-  delay(1000);  
+  InitGameOfLife(40);   // % populated
 }
 
 void loop() {
+  loop_ndx++; // counter
+
   // follow GoL rules
   UpdateGameOfLife();
 
   // update display
   FastLED.show(); 
 
-  CheckForEndGame();
-
   // slow everything 
-  delay(60);
+  delay(50);
 }
